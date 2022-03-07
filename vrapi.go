@@ -21,11 +21,50 @@ const (
 )
 
 type OVRInitParms C.ovrInitParms // HMMM alias this type?
+
+type OVRStructureType int32
+
+const (
+	STRUCTURE_TYPE_INIT_PARMS        = 1
+	STRUCTURE_TYPE_MODE_PARMS        = 2
+	STRUCTURE_TYPE_FRAME_PARMS       = 3
+	STRUCTURE_TYPE_MODE_PARMS_VULKAN = 5
+)
+
+//type OVRModeParms C.ovrModeParms
+// Just experiment with this?
+type OVRModeParms struct {
+	Type  OVRStructureType
+	Flags uint32
+	Java  OVRJava
+	//Padding       int32 // ??? // Add in build constraint for padding here?
+	Display       uint64
+	WindowSurface uint64
+	ShareContext  uint64
+}
+
+/*
+func (p *OVRModeParms) fromC() {
+
+}
+
+func (p *OVRModeParms) toC() *C.ovrModeParms {
+
+}
+*/
+
 type OVRJava C.ovrJava
+
+//type OVRMobile C.ovrMobile
 
 func DefaultInitParms(java *OVRJava) OVRInitParms {
 	cParms := C.vrapi_DefaultInitParms((*C.ovrJava)(java))
 	return OVRInitParms(cParms)
+}
+
+func DefaultModeParms(java *OVRJava) OVRModeParms {
+	cParms := C.vrapi_DefaultModeParms((*C.ovrJava)(java))
+	return *(*OVRModeParms)(unsafe.Pointer(&cParms))
 }
 
 // This should run with vrctx like glctx on a seperate thread.
@@ -40,6 +79,13 @@ func Initialize(parms *OVRInitParms) error {
 	}
 	return nil
 }
+
+/*
+func GetPredictedDisplayTime(vrApp *OVRMobile, frameIndex int64) float32 {
+	return float32(C.vrapi_GetPredictedDisplayTime((*C.ovrMobile)(vrApp),
+		C.longlong(frameIndex)))
+}
+*/
 
 // Helpers not in the original API.
 // Expects the values from
