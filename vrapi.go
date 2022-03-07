@@ -21,7 +21,6 @@ const (
 )
 
 type OVRInitParms C.ovrInitParms // HMMM alias this type?
-
 type OVRStructureType int32
 
 const (
@@ -43,19 +42,10 @@ type OVRModeParms struct {
 	ShareContext  uint64
 }
 
-/*
-func (p *OVRModeParms) fromC() {
-
-}
-
-func (p *OVRModeParms) toC() *C.ovrModeParms {
-
-}
-*/
-
 type OVRJava C.ovrJava
+type OVRMobile C.ovrMobile
 
-//type OVRMobile C.ovrMobile
+type OVRTracking2 C.ovrTracking2
 
 func DefaultInitParms(java *OVRJava) OVRInitParms {
 	cParms := C.vrapi_DefaultInitParms((*C.ovrJava)(java))
@@ -67,7 +57,14 @@ func DefaultModeParms(java *OVRJava) OVRModeParms {
 	return *(*OVRModeParms)(unsafe.Pointer(&cParms))
 }
 
-// This should run with vrctx like glctx on a seperate thread.
+// glctx
+func EnterVrMode(modeParms *OVRModeParms) *OVRMobile {
+	cParms := (*C.ovrModeParms)(unsafe.Pointer(modeParms))
+	ovr := C.vrapi_EnterVrMode(cParms)
+	return (*OVRMobile)(ovr)
+}
+
+// This should run with vrctx like glctx on a seperate thread.???
 // Could be intresting / helpful to seperate functions on seperate threads.
 // Following same worker pattern as gl.
 // Should this be a status? or an error code
@@ -80,12 +77,16 @@ func Initialize(parms *OVRInitParms) error {
 	return nil
 }
 
-/*
-func GetPredictedDisplayTime(vrApp *OVRMobile, frameIndex int64) float32 {
-	return float32(C.vrapi_GetPredictedDisplayTime((*C.ovrMobile)(vrApp),
+func GetPredictedDisplayTime(vrApp *OVRMobile, frameIndex int64) float64 {
+	return float64(C.vrapi_GetPredictedDisplayTime((*C.ovrMobile)(vrApp),
 		C.longlong(frameIndex)))
 }
-*/
+
+func GetPredictedTracking2(vrApp *OVRMobile, displayTime float64) OVRTracking2 {
+	cOVR := (*C.ovrMobile)(unsafe.Pointer(vrApp))
+	cTracking := C.vrapi_GetPredictedTracking2(cOVR, C.double(displayTime))
+	return OVRTracking2(cTracking)
+}
 
 // Helpers not in the original API.
 // Expects the values from
