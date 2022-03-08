@@ -8,22 +8,27 @@ package vrapi
 
 #include <VrApi.h>
 #include <VrApi_Helpers.h>
+#include <VrApi_Input.h>
 */
 import "C"
 
 import (
 	"fmt"
 	"unsafe"
+
+	mgl "github.com/go-gl/mathgl/mgl32"
 )
 
 const (
 	INITIALIZE_SUCCESS = C.VRAPI_INITIALIZE_SUCCESS
+
+	OVRSuccess = C.ovrSuccess
 )
 
 type OVRInitParms C.ovrInitParms // HMMM alias this type?
 type OVRStructureType int32
 
-const (
+const ( // OVRInitParms
 	STRUCTURE_TYPE_INIT_PARMS        = 1
 	STRUCTURE_TYPE_MODE_PARMS        = 2
 	STRUCTURE_TYPE_FRAME_PARMS       = 3
@@ -87,6 +92,76 @@ func GetPredictedTracking2(vrApp *OVRMobile, displayTime float64) OVRTracking2 {
 	cTracking := C.vrapi_GetPredictedTracking2(cOVR, C.double(displayTime))
 	return OVRTracking2(cTracking)
 }
+
+// Input (move to seperate file)
+type OVRControllerType int32
+
+const ( // OVRControllerType
+	OVRControllerType_None          = 0
+	OVRControllerType_Reserved0     = (1 << 0)
+	OVRControllerType_Reserved1     = (1 << 1)
+	OVRControllerType_TrackedRemote = (1 << 2)
+	OVRControllerType_Gamepad       = (1 << 4) // Deprecated, will be removed in a future release
+	OVRControllerType_Hand          = (1 << 5)
+
+	OVRControllerType_StandardPointer = (1 << 7)
+)
+
+type OVRDeviceID int32
+
+type OVRInputCapabilityHeader struct {
+	Type     OVRControllerType // HMMM
+	DeviceID OVRDeviceID       // HMMM
+}
+
+// TODO should this return an error?
+func EnumerateInputDevices(vrApp *OVRMobile, index uint32,
+	capsHeader *OVRInputCapabilityHeader) int32 {
+
+	cOVR := (*C.ovrMobile)(unsafe.Pointer(vrApp))
+	cHeader := (*C.ovrInputCapabilityHeader)(unsafe.Pointer(capsHeader))
+	res := C.vrapi_EnumerateInputDevices(cOVR, C.uint(index), cHeader)
+
+	//log.Printf("cHeader %+v %p", cHeader, cHeader)
+	//capsHeader = (*OVRInputCapabilityHeader)(unsafe.Pointer(cHeader)) // Convert back?
+	//log.Printf("goHeader %+v %p %+v", capsHeader, capsHeader, capsHeader.Type)
+
+	return int32(res)
+}
+
+type OVRInputStateStandardPointer struct {
+	Header           OVRInputStateHeader
+	PointerPose      OVRPosef
+	PointerStrength  float32
+	GripPose         OVRPosef
+	InputStateStatus uint32
+	Reserved         [20]uint64 // ???
+}
+
+type OVRInputStateHeader struct {
+	ControllerType OVRControllerType
+	TimeInSeconds  float64
+}
+
+type OVRPosef struct {
+	Orientation mgl.Quat
+	Position    mgl.Vec3 // aka Translation (Limitation due to Go not having unions)
+}
+
+func GetCurrentInputState(vrApp *OVRMobile,
+	deviceID OVRDeviceID, inputState *OVRInputStateHeader) error {
+
+	cOVR := (*C.ovrMobile)(unsafe.Pointer(vrApp))
+	cInputState := (*C.ovrInputStateHeader)(unsafe.Pointer(inputState))
+	res := C.vrapi_GetCurrentInputState(cOVR, C.uint(deviceID), cInputState)
+	if res != OVRSuccess {
+		return fmt.Errorf("get current input state expected sucess (%d) got %d",
+			OVRSuccess, res)
+	}
+	return nil
+}
+
+// END input
 
 // Helpers not in the original API.
 // Expects the values from
