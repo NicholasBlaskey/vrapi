@@ -94,7 +94,7 @@ func GetPredictedTracking2(vrApp *OVRMobile, displayTime float64) OVRTracking2 {
 }
 
 // Input (move to seperate file)
-type OVRControllerType int32
+type OVRControllerType uint32
 
 const ( // OVRControllerType
 	OVRControllerType_None          = 0
@@ -107,11 +107,30 @@ const ( // OVRControllerType
 	OVRControllerType_StandardPointer = (1 << 7)
 )
 
-type OVRDeviceID int32
+type OVRControllerCapabilities uint32
+
+const ( // OVRControllerCapabilities
+	OVRControllerCaps_HasOrientationTracking     = 0x00000001
+	OVRControllerCaps_HasPositionTracking        = 0x00000002
+	OVRControllerCaps_LeftHand                   = 0x00000004 //< Controller is configured for left hand
+	OVRControllerCaps_RightHand                  = 0x00000008 //< Controller is configured for right hand
+	OVRControllerCaps_ModelOculusGo              = 0x00000010 //< Controller for Oculus Go devices
+	OVRControllerCaps_HasAnalogIndexTrigger      = 0x00000040 //< Controller has an analog index trigger vs. a binary one
+	OVRControllerCaps_HasAnalogGripTrigger       = 0x00000080 //< Controller has an analog grip trigger vs. a binary one
+	OVRControllerCaps_HasSimpleHapticVibration   = 0x00000200 //< Controller supports simple haptic vibration
+	OVRControllerCaps_HasBufferedHapticVibration = 0x00000400 //< Controller supports buffered haptic vibration
+	OVRControllerCaps_ModelGearVR                = 0x00000800 //< Controller is the Gear VR Controller
+	OVRControllerCaps_HasTrackpad                = 0x00001000 //< Controller has a trackpad
+	OVRControllerCaps_HasJoystick                = 0x00002000 //< Controller has a joystick.
+	OVRControllerCaps_ModelOculusTouch           = 0x00004000 //< Oculus Touch Controller For Oculus Quest
+	OVRControllerCaps_EnumSize                   = 0x7fffffff
+)
+
+type OVRDeviceID uint32
 
 type OVRInputCapabilityHeader struct {
-	Type     OVRControllerType // HMMM
-	DeviceID OVRDeviceID       // HMMM
+	Type     OVRControllerType
+	DeviceID OVRDeviceID
 }
 
 // TODO should this return an error?
@@ -135,7 +154,7 @@ type OVRInputStateStandardPointer struct {
 	PointerStrength  float32
 	GripPose         OVRPosef
 	InputStateStatus uint32
-	Reserved         [20]uint64 // ???
+	Reserved         [20]uint64 // Reserved for future use
 }
 
 type OVRInputStateHeader struct {
@@ -148,6 +167,14 @@ type OVRPosef struct {
 	Position    mgl.Vec3 // aka Translation (Limitation due to Go not having unions)
 }
 
+type OVRInputStandardPointerCapabilities struct {
+	Header                 OVRInputCapabilityHeader
+	ControllerCapabilities uint32     // Mask of controller capabilities described by ovrControllerCapabilities
+	HapticSamplesMax       uint32     // Maximum submittable samples for the haptics buffer
+	HapticSampleDurationMS uint32     // length in milliseconds of a sample in the haptics buffer.
+	Reserved               [20]uint64 // Reserved for future use
+}
+
 func GetCurrentInputState(vrApp *OVRMobile,
 	deviceID OVRDeviceID, inputState *OVRInputStateHeader) error {
 
@@ -156,6 +183,19 @@ func GetCurrentInputState(vrApp *OVRMobile,
 	res := C.vrapi_GetCurrentInputState(cOVR, C.uint(deviceID), cInputState)
 	if res != OVRSuccess {
 		return fmt.Errorf("get current input state expected sucess (%d) got %d",
+			OVRSuccess, res)
+	}
+	return nil
+}
+
+func GetInputDeviceCapabilities(vrApp *OVRMobile,
+	capsHeader *OVRInputCapabilityHeader) error {
+
+	cOVR := (*C.ovrMobile)(unsafe.Pointer(vrApp))
+	cCapsHeader := (*C.ovrInputCapabilityHeader)(unsafe.Pointer(capsHeader))
+	res := C.vrapi_GetInputDeviceCapabilities(cOVR, cCapsHeader)
+	if res != OVRSuccess {
+		return fmt.Errorf("get input device capabilities expected sucess (%d) got %d",
 			OVRSuccess, res)
 	}
 	return nil
