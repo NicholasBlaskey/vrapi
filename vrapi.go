@@ -19,21 +19,23 @@ import (
 	mgl "github.com/go-gl/mathgl/mgl32"
 )
 
+// Constants here since we get these from runtime?
+// Should we not get these from runtime?
+// Should we get all constants from runtime?
 const (
 	INITIALIZE_SUCCESS = C.VRAPI_INITIALIZE_SUCCESS
 
 	OVRSuccess = C.ovrSuccess
+
+	FRAME_LAYER_EYE_MAX = C.VRAPI_FRAME_LAYER_EYE_MAX
 )
+
+func GetSystemPropertyInt(java *OVRJava, parm OVRSystemProperty) int { // int or int32?
+	cJava := (*C.ovrJava)(java)
+	return int(C.vrapi_GetSystemPropertyInt(cJava, C.ovrSystemProperty(parm)))
+}
 
 type OVRInitParms C.ovrInitParms // HMMM alias this type?
-type OVRStructureType int32
-
-const ( // OVRInitParms
-	STRUCTURE_TYPE_INIT_PARMS        = 1
-	STRUCTURE_TYPE_MODE_PARMS        = 2
-	STRUCTURE_TYPE_FRAME_PARMS       = 3
-	STRUCTURE_TYPE_MODE_PARMS_VULKAN = 5
-)
 
 //type OVRModeParms C.ovrModeParms
 // Just experiment with this?
@@ -69,10 +71,7 @@ func EnterVrMode(modeParms *OVRModeParms) *OVRMobile {
 	return (*OVRMobile)(ovr)
 }
 
-// This should run with vrctx like glctx on a seperate thread.???
-// Could be intresting / helpful to seperate functions on seperate threads.
-// Following same worker pattern as gl.
-// Should this be a status? or an error code
+// glctx
 func Initialize(parms *OVRInitParms) error {
 	status := C.vrapi_Initialize((*C.ovrInitParms)(parms))
 	if status != INITIALIZE_SUCCESS {
@@ -80,6 +79,57 @@ func Initialize(parms *OVRInitParms) error {
 			status, INITIALIZE_SUCCESS)
 	}
 	return nil
+}
+
+type OVRLayerHeader2 struct {
+	Type       OVRLayerType2
+	Flags      uint32
+	ColorScale mgl.Vec4
+	SrcBlend   OVRFrameLayerBlend
+	DstBlend   OVRFrameLayerBlend
+	Reserved   unsafe.Pointer // VOID*?
+}
+
+type OVRLayerProjection2 struct {
+	Header OVRLayerHeader2
+	// TODO padding for 32 bit
+	//Padding       int32 // ??? // Add in build constraint for padding here?
+
+	HeadPose OVRRigidBodyPosef
+
+	Textures [FRAME_LAYER_EYE_MAX]EyeInformation
+}
+
+type OVRTextureSwapChain int // TODO what is this type???
+
+type EyeInformation struct {
+	ColorSwapChain         *OVRTextureSwapChain
+	SwapChainIndex         int32
+	TexCoordsFromTanAngles mgl.Mat4
+	TextureRect            OVRRectf
+}
+
+type OVRRigidBodyPosef struct {
+	Pose                OVRPosef
+	AngularVelocity     mgl.Vec3
+	LinearVelocity      mgl.Vec3
+	AngularAcceleration mgl.Vec3
+	LinearAcceleration  mgl.Vec3
+
+	TimeInSeconds       float64 //< Absolute time of this pose.
+	PredictionInSeconds float64 //< Seconds this pose was predicted ahead.
+}
+
+type OVRRectf struct { // Make this a vec4? Or img rect???
+	X      float32
+	Y      float32
+	Width  float32
+	Height float32
+}
+
+func DefaultLayerProjection2() OVRLayerProjection2 {
+	cLayer := C.vrapi_DefaultLayerProjection2()
+	return *(*OVRLayerProjection2)(unsafe.Pointer(&cLayer))
 }
 
 func GetPredictedDisplayTime(vrApp *OVRMobile, frameIndex int64) float64 {
@@ -94,37 +144,6 @@ func GetPredictedTracking2(vrApp *OVRMobile, displayTime float64) OVRTracking2 {
 }
 
 // Input (move to seperate file)
-type OVRControllerType uint32
-
-const ( // OVRControllerType
-	OVRControllerType_None          = 0
-	OVRControllerType_Reserved0     = (1 << 0)
-	OVRControllerType_Reserved1     = (1 << 1)
-	OVRControllerType_TrackedRemote = (1 << 2)
-	OVRControllerType_Gamepad       = (1 << 4) // Deprecated, will be removed in a future release
-	OVRControllerType_Hand          = (1 << 5)
-
-	OVRControllerType_StandardPointer = (1 << 7)
-)
-
-type OVRControllerCapabilities uint32
-
-const ( // OVRControllerCapabilities
-	OVRControllerCaps_HasOrientationTracking     = 0x00000001
-	OVRControllerCaps_HasPositionTracking        = 0x00000002
-	OVRControllerCaps_LeftHand                   = 0x00000004 //< Controller is configured for left hand
-	OVRControllerCaps_RightHand                  = 0x00000008 //< Controller is configured for right hand
-	OVRControllerCaps_ModelOculusGo              = 0x00000010 //< Controller for Oculus Go devices
-	OVRControllerCaps_HasAnalogIndexTrigger      = 0x00000040 //< Controller has an analog index trigger vs. a binary one
-	OVRControllerCaps_HasAnalogGripTrigger       = 0x00000080 //< Controller has an analog grip trigger vs. a binary one
-	OVRControllerCaps_HasSimpleHapticVibration   = 0x00000200 //< Controller supports simple haptic vibration
-	OVRControllerCaps_HasBufferedHapticVibration = 0x00000400 //< Controller supports buffered haptic vibration
-	OVRControllerCaps_ModelGearVR                = 0x00000800 //< Controller is the Gear VR Controller
-	OVRControllerCaps_HasTrackpad                = 0x00001000 //< Controller has a trackpad
-	OVRControllerCaps_HasJoystick                = 0x00002000 //< Controller has a joystick.
-	OVRControllerCaps_ModelOculusTouch           = 0x00004000 //< Oculus Touch Controller For Oculus Quest
-	OVRControllerCaps_EnumSize                   = 0x7fffffff
-)
 
 type OVRDeviceID uint32
 
