@@ -148,6 +148,38 @@ func EnumerateInputDevices(vrApp *OVRMobile, index uint32,
 	return int32(res)
 }
 
+type OVRInputStateTrackedRemote struct {
+	Header OVRInputStateHeader
+
+	Buttons uint32 // Values for buttons described by ovrButton.
+	// Finger contact status for trackpad
+	// true = finger is on trackpad, false = finger is off trackpad
+	TrackpadStatus uint32
+
+	TrackpadPosition        mgl.Vec2 // X and Y coordinates of the Trackpad
+	BatteryPercentRemaining uint8    // The percentage of max battery charge remaining.
+
+	// Increments every time the remote is recentered. If this changes, the application may need
+	// to adjust its arm model accordingly.
+	RecenterCount uint8
+	Reserved      uint16 // Reserved for future use.
+
+	// Analog values from 0.0 - 1.0 of the pull of the triggers
+	// added in API version 1.1.13.0
+	IndexTrigger float32
+	GripTrigger  float32
+
+	// added in API version 1.1.15.0
+	Touches    uint32
+	Reserved5a uint32
+
+	// Analog values from -1.0 - 1.0
+	// The value is set to 0.0 on Joystick, if the magnitude of the vector is < 0.1f
+	Joystick mgl.Vec2
+	// JoystickNoDeadZone does change the raw values of the data.
+	JoystickNoDeadZone mgl.Vec2
+}
+
 type OVRInputStateStandardPointer struct {
 	Header           OVRInputStateHeader
 	PointerPose      OVRPosef
