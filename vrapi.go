@@ -52,7 +52,20 @@ type OVRModeParms struct {
 type OVRJava C.ovrJava
 type OVRMobile C.ovrMobile
 
-type OVRTracking2 C.ovrTracking2
+type OVRTracking2 struct {
+	Status  uint32 // Sensor status described by ovrTrackingStatus flags.
+	Padding [4]byte
+
+	// Predicted head configuration at the requested absolute time.
+	// The pose describes the head orientation and center eye position.
+	HeadPose OVRRigidBodyPosef
+	Eye      [2]Tracking2Matrices
+}
+
+type Tracking2Matrices struct {
+	ProjectionMatrix mgl.Mat4
+	ViewMatrix       mgl.Mat4
+}
 
 func DefaultInitParms(java *OVRJava) OVRInitParms {
 	cParms := C.vrapi_DefaultInitParms((*C.ovrJava)(java))
@@ -140,7 +153,7 @@ func GetPredictedDisplayTime(vrApp *OVRMobile, frameIndex int64) float64 {
 func GetPredictedTracking2(vrApp *OVRMobile, displayTime float64) OVRTracking2 {
 	cOVR := (*C.ovrMobile)(unsafe.Pointer(vrApp))
 	cTracking := C.vrapi_GetPredictedTracking2(cOVR, C.double(displayTime))
-	return OVRTracking2(cTracking)
+	return *(*OVRTracking2)(unsafe.Pointer(&cTracking))
 }
 
 // Input (move to seperate file)
