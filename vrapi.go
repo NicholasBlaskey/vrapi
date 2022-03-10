@@ -83,7 +83,7 @@ func Initialize(parms *OVRInitParms) error {
 
 type OVRLayerHeader2 struct {
 	Type       OVRLayerType2
-	Flags      uint32
+	Flags      OVRFrameLayerFlags
 	ColorScale mgl.Vec4
 	SrcBlend   OVRFrameLayerBlend
 	DstBlend   OVRFrameLayerBlend

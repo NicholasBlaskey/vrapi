@@ -119,3 +119,39 @@ const ( // OVRFrameLayerBlend
 	FRAME_LAYER_BLEND_SRC_ALPHA           = 2
 	FRAME_LAYER_BLEND_ONE_MINUS_SRC_ALPHA = 5
 )
+
+type OVRFrameLayerFlags uint32
+
+const (
+	/// NOTE: On Oculus standalone devices chromatic aberration correction is enabled
+	/// by default.
+	/// For non Oculus standalone devices this must be explicitly enabled by specifying the layer
+	/// flag as it is a quality / performance trade off.
+	FRAME_LAYER_FLAG_CHROMATIC_ABERRATION_CORRECTION = 1 << 1
+	/// Used for some HUDs but generally considered bad practice.
+	FRAME_LAYER_FLAG_FIXED_TO_VIEW = 1 << 2
+	/// Spin the layer - for loading icons
+	FRAME_LAYER_FLAG_SPIN = 1 << 3
+	/// Clip fragments outside the layer's TextureRect
+	FRAME_LAYER_FLAG_CLIP_TO_TEXTURE_RECT = 1 << 4
+
+	/// To get gamma correct sRGB filtering of the eye textures the textures must be
+	/// allocated with GL_SRGB8_ALPHA8 format and the window surface must be allocated
+	/// with these attributes:
+	/// EGL_GL_COLORSPACE_KHR  EGL_GL_COLORSPACE_SRGB_KHR
+	///
+	/// While we can reallocate textures easily enough we can't change the window
+	/// colorspace without relaunching the entire application so if you want to
+	/// be able to toggle between gamma correct and incorrect you must allocate
+	/// the framebuffer as sRGB then inhibit that processing when using normal
+	/// textures.
+	///
+	/// If the texture being read isn't an sRGB texture the conversion
+	/// on write must be inhibited or the colors are washed out.
+	/// This is necessary for using external images on an sRGB framebuffer.
+	FRAME_LAYER_FLAG_INHIBIT_SRGB_FRAMEBUFFER = 1 << 8
+
+	/// Allow Layer to use an expensive filtering mode. Only useful for 2D layers that are high
+	/// resolution (e.g. a remote desktop layer) typically double or more the target resolution.
+	FRAME_LAYER_FLAG_FILTER_EXPENSIVE = 1 << 19
+)
