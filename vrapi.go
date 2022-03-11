@@ -19,6 +19,15 @@ import (
 	mgl "github.com/go-gl/mathgl/mgl32"
 )
 
+func jplToHamiltonQuats(quat mgl.Quat) mgl.Quat {
+	// https://fzheng.me/2017/11/12/quaternion_conventions_en/
+	//
+	// https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/q2m_c.html
+	//   Relationship between SPICE and Engineering Quaternions
+	// Not sure why we don't need the negatives as described in this relationship above?
+	return mgl.Quat{quat.V[2], mgl.Vec3{quat.W, quat.V[0], quat.V[1]}}
+}
+
 // Constants here since we get these from runtime?
 // Should we not get these from runtime?
 // Should we get all constants from runtime?
@@ -58,7 +67,7 @@ type OVRTracking2 struct {
 
 	// Predicted head configuration at the requested absolute time.
 	// The pose describes the head orientation and center eye position.
-	HeadPose OVRRigidBodyPosef
+	HeadPose OVRRigidBodyPosef // TODO
 	Eye      [2]Tracking2Matrices
 }
 
@@ -108,7 +117,7 @@ type OVRLayerProjection2 struct {
 	// TODO padding for 32 bit
 	//Padding       int32 // ??? // Add in build constraint for padding here?
 
-	HeadPose OVRRigidBodyPosef
+	HeadPose OVRRigidBodyPosef // TODO
 
 	Textures [FRAME_LAYER_EYE_MAX]EyeInformation
 }
@@ -123,7 +132,7 @@ type EyeInformation struct {
 }
 
 type OVRRigidBodyPosef struct {
-	Pose                OVRPosef
+	Pose                OVRPosef // TODO
 	AngularVelocity     mgl.Vec3
 	LinearVelocity      mgl.Vec3
 	AngularAcceleration mgl.Vec3
@@ -153,6 +162,8 @@ func GetPredictedDisplayTime(vrApp *OVRMobile, frameIndex int64) float64 {
 func GetPredictedTracking2(vrApp *OVRMobile, displayTime float64) OVRTracking2 {
 	cOVR := (*C.ovrMobile)(unsafe.Pointer(vrApp))
 	cTracking := C.vrapi_GetPredictedTracking2(cOVR, C.double(displayTime))
+
+	// TODO
 	return *(*OVRTracking2)(unsafe.Pointer(&cTracking))
 }
 
@@ -214,9 +225,9 @@ type OVRInputStateTrackedRemote struct {
 
 type OVRInputStateStandardPointer struct {
 	Header           OVRInputStateHeader
-	PointerPose      OVRPosef
+	PointerPose      OVRPosef // to hamiltoned
 	PointerStrength  float32
-	GripPose         OVRPosef
+	GripPose         OVRPosef // to hamiltoned
 	InputStateStatus uint32
 	Reserved         [20]uint64 // Reserved for future use
 }
@@ -249,6 +260,13 @@ func GetCurrentInputState(vrApp *OVRMobile,
 		return fmt.Errorf("get current input state expected sucess (%d) got %d",
 			OVRSuccess, res)
 	}
+
+	if inputState.ControllerType == OVRControllerType_StandardPointer {
+		cPointer := (*OVRInputStateStandardPointer)(unsafe.Pointer(inputState))
+		cPointer.GripPose.Orientation = jplToHamiltonQuats(cPointer.GripPose.Orientation)
+		cPointer.PointerPose.Orientation = jplToHamiltonQuats(cPointer.PointerPose.Orientation)
+	}
+
 	return nil
 }
 
@@ -262,6 +280,7 @@ func GetInputDeviceCapabilities(vrApp *OVRMobile,
 		return fmt.Errorf("get input device capabilities expected sucess (%d) got %d",
 			OVRSuccess, res)
 	}
+
 	return nil
 }
 
