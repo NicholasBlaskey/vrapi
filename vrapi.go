@@ -118,6 +118,7 @@ type OVRLayerProjection2 struct {
 	//Padding       int32 // ??? // Add in build constraint for padding here?
 
 	HeadPose OVRRigidBodyPosef // TODO
+	// We have to conver to, then convert back upon submission supposedly?
 
 	Textures [FRAME_LAYER_EYE_MAX]EyeInformation
 }
@@ -151,7 +152,9 @@ type OVRRectf struct { // Make this a vec4? Or img rect???
 
 func DefaultLayerProjection2() OVRLayerProjection2 {
 	cLayer := C.vrapi_DefaultLayerProjection2()
-	return *(*OVRLayerProjection2)(unsafe.Pointer(&cLayer))
+	layer := *(*OVRLayerProjection2)(unsafe.Pointer(&cLayer))
+
+	return layer
 }
 
 func GetPredictedDisplayTime(vrApp *OVRMobile, frameIndex int64) float64 {
