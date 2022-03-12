@@ -155,3 +155,12 @@ const (
 	/// resolution (e.g. a remote desktop layer) typically double or more the target resolution.
 	FRAME_LAYER_FLAG_FILTER_EXPENSIVE = 1 << 19
 )
+
+type OVRTextureType uint32
+
+const ( // OVRTextureType
+	TEXTURE_TYPE_2D       = 0 //< 2D textures.
+	TEXTURE_TYPE_2D_ARRAY = 2 //< Texture array.
+	TEXTURE_TYPE_CUBE     = 3 //< Cube maps.
+	TEXTURE_TYPE_MAX      = 4
+)

@@ -103,6 +103,29 @@ func Initialize(parms *OVRInitParms) error {
 	return nil
 }
 
+// glctx
+func CreateTextureSwapChain3(texType OVRTextureType, format int64,
+	width, height, levels, bufferCount int) *OVRTextureSwapChain {
+
+	cSwapChain := C.vrapi_CreateTextureSwapChain3(
+		C.ovrTextureType(texType), C.long(format),
+		C.int(width), C.int(height), C.int(levels), C.int(bufferCount))
+
+	return (*OVRTextureSwapChain)(unsafe.Pointer(cSwapChain))
+}
+
+// glctx?
+func GetTextureSwapChainLength(swapChain *OVRTextureSwapChain) int {
+	cSwapChain := (*C.ovrTextureSwapChain)(unsafe.Pointer(swapChain))
+	return int(C.vrapi_GetTextureSwapChainLength(cSwapChain))
+}
+
+// glctx
+func GetTextureSwapChainHandle(swapChain *OVRTextureSwapChain, i int) uint32 {
+	cSwapChain := (*C.ovrTextureSwapChain)(unsafe.Pointer(swapChain))
+	return uint32(C.vrapi_GetTextureSwapChainHandle(cSwapChain, C.int(i)))
+}
+
 type OVRLayerHeader2 struct {
 	Type       OVRLayerType2
 	Flags      OVRFrameLayerFlags
@@ -123,7 +146,7 @@ type OVRLayerProjection2 struct {
 	Textures [FRAME_LAYER_EYE_MAX]EyeInformation
 }
 
-type OVRTextureSwapChain int // TODO what is this type???
+type OVRTextureSwapChain C.ovrTextureSwapChain // TODO what is this type???
 
 type EyeInformation struct {
 	ColorSwapChain         *OVRTextureSwapChain
