@@ -50,7 +50,7 @@ type OVRInitParms C.ovrInitParms // HMMM alias this type?
 // Just experiment with this?
 type OVRModeParms struct {
 	Type  OVRStructureType
-	Flags uint32
+	Flags OVRModeFlags
 	Java  OVRJava
 	//Padding       int32 // ??? // Add in build constraint for padding here?
 	Display       uint64
@@ -270,10 +270,10 @@ type OVRPosef struct {
 
 type OVRInputStandardPointerCapabilities struct {
 	Header                 OVRInputCapabilityHeader
-	ControllerCapabilities uint32     // Mask of controller capabilities described by ovrControllerCapabilities
-	HapticSamplesMax       uint32     // Maximum submittable samples for the haptics buffer
-	HapticSampleDurationMS uint32     // length in milliseconds of a sample in the haptics buffer.
-	Reserved               [20]uint64 // Reserved for future use
+	ControllerCapabilities OVRControllerCapabilities // Mask of controller capabilities described by ovrControllerCapabilities
+	HapticSamplesMax       uint32                    // Maximum submittable samples for the haptics buffer
+	HapticSampleDurationMS uint32                    // length in milliseconds of a sample in the haptics buffer.
+	Reserved               [20]uint64                // Reserved for future use
 }
 
 func GetCurrentInputState(vrApp *OVRMobile,
