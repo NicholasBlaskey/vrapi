@@ -10,18 +10,25 @@ package vrapi
 #include <VrApi_Helpers.h>
 #include <VrApi_Input.h>
 
+#include <unistd.h>
 void addLayer(ovrMobile* ovr, ovrSubmitFrameDescription2* frameDesc, ovrLayerHeader2 header, ovrLayerProjection2 layer) {
+
+	// SETS A C Pointer.
 	//const ovrLayerHeader2* layers[] = { &header };
+
+	// Sets a C pointer to a C pointer?
 	const ovrLayerHeader2* layers[] = { &layer.Header };
 	(*frameDesc).Layers = layers;
 
-    vrapi_SubmitFrame2(ovr, frameDesc);
+	sleep(1); // This function needs to be kept alive... AKA this memory
+    //vrapi_SubmitFrame2(ovr, frameDesc);
 }
 */
 import "C"
 
 import (
 	"fmt"
+	"time"
 	"unsafe"
 
 	mgl "github.com/go-gl/mathgl/mgl32"
@@ -176,24 +183,27 @@ func SubmitFrame2(vrApp *OVRMobile, frameDescription *OVRSubmitFrameDescription2
 	// TODO REMOVE
 	cLayer := *(*C.ovrLayerProjection2)(unsafe.Pointer(&layer))
 	cHeader := *(*C.ovrLayerHeader2)(unsafe.Pointer(&header))
-	C.addLayer(cApp, cFrameDesc, cHeader, cLayer)
+	go C.addLayer(cApp, cFrameDesc, cHeader, cLayer)
+	time.Sleep(time.Millisecond * 10)
 	// END
+
+	// TODO just MALLOC the pointer
+	// Since GC seems to free the c pointer when the program exits?
+	// https://stackoverflow.com/questions/35924545/golang-cgo-panic-runtime-error-cgo-argument-has-go-pointer-to-go-pointer
 
 	fmt.Printf("go header %+v\n", header)
 	fmt.Printf("C header %+v\n", cHeader)
-	fmt.Printf("frame desc header %+v\n", *(cFrameDesc.Layers))
+	fmt.Printf("frame desc header %+v\n", (cFrameDesc.Layers))
 
 	// go header {Type:1 Flags:2 ColorScale:[1 1 1 1] SrcBlend:1 DstBlend:0 Reserved:<nil>
 	// C header {Type:1 Flags:2 ColorScale:{x:1 y:1 z:1 w:1} SrcBlend:1 DstBlend:0 Reserved:<nil>}
 	// 0x7ba39d2c28 =>
 
-	/*
-		res := C.vrapi_SubmitFrame2(cApp, cFrameDesc)
-		if res != OVRSuccess {
-			return fmt.Errorf("get current input state expected sucess (%d) got %d",
-				OVRSuccess, res)
-		}
-	*/
+	res := C.vrapi_SubmitFrame2(cApp, cFrameDesc)
+	if res != OVRSuccess {
+		return fmt.Errorf("get current input state expected sucess (%d) got %d",
+			OVRSuccess, res)
+	}
 
 	return nil
 }
