@@ -9,6 +9,14 @@ package vrapi
 #include <VrApi.h>
 #include <VrApi_Helpers.h>
 #include <VrApi_Input.h>
+
+void addLayer(ovrMobile* ovr, ovrSubmitFrameDescription2* frameDesc, ovrLayerHeader2 header, ovrLayerProjection2 layer) {
+	//const ovrLayerHeader2* layers[] = { &header };
+	const ovrLayerHeader2* layers[] = { &layer.Header };
+	(*frameDesc).Layers = layers;
+
+    vrapi_SubmitFrame2(ovr, frameDesc);
+}
 */
 import "C"
 
@@ -144,6 +152,50 @@ type OVRLayerProjection2 struct {
 	// We have to conver to, then convert back upon submission supposedly?
 
 	Textures [FRAME_LAYER_EYE_MAX]EyeInformation
+}
+
+type OVRSubmitFrameDescription2 struct {
+	Flags        uint32
+	SwapInterval uint32
+	FrameIndex   uint64
+	DisplayTime  float64
+	Pad          [8]byte // Unused
+	LayerCount   uint32
+	Layers       **C.ovrLayerHeader2
+
+	//Layers       [1]*OVRLayerHeader2
+	//Layers       []OVRLayerHeader2 // TODO when calling stuff pass a pointer to first element
+}
+
+func SubmitFrame2(vrApp *OVRMobile, frameDescription *OVRSubmitFrameDescription2,
+	header OVRLayerHeader2, layer OVRLayerProjection2) error {
+
+	cApp := (*C.ovrMobile)(unsafe.Pointer(vrApp))
+	cFrameDesc := (*C.ovrSubmitFrameDescription2)(unsafe.Pointer(frameDescription))
+
+	// TODO REMOVE
+	cLayer := *(*C.ovrLayerProjection2)(unsafe.Pointer(&layer))
+	cHeader := *(*C.ovrLayerHeader2)(unsafe.Pointer(&header))
+	C.addLayer(cApp, cFrameDesc, cHeader, cLayer)
+	// END
+
+	fmt.Printf("go header %+v\n", header)
+	fmt.Printf("C header %+v\n", cHeader)
+	fmt.Printf("frame desc header %+v\n", *(cFrameDesc.Layers))
+
+	// go header {Type:1 Flags:2 ColorScale:[1 1 1 1] SrcBlend:1 DstBlend:0 Reserved:<nil>
+	// C header {Type:1 Flags:2 ColorScale:{x:1 y:1 z:1 w:1} SrcBlend:1 DstBlend:0 Reserved:<nil>}
+	// 0x7ba39d2c28 =>
+
+	/*
+		res := C.vrapi_SubmitFrame2(cApp, cFrameDesc)
+		if res != OVRSuccess {
+			return fmt.Errorf("get current input state expected sucess (%d) got %d",
+				OVRSuccess, res)
+		}
+	*/
+
+	return nil
 }
 
 type OVRTextureSwapChain C.ovrTextureSwapChain // TODO what is this type???
