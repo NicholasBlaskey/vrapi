@@ -10,7 +10,10 @@ package vrapi
 #include <VrApi_Helpers.h>
 #include <VrApi_Input.h>
 
-#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <unistd.h> // Remove
 void addLayer(ovrMobile* ovr, ovrSubmitFrameDescription2* frameDesc, ovrLayerHeader2 header, ovrLayerProjection2 layer) {
 
 	// SETS A C Pointer.
@@ -28,7 +31,7 @@ import "C"
 
 import (
 	"fmt"
-	"time"
+	"log"
 	"unsafe"
 
 	mgl "github.com/go-gl/mathgl/mgl32"
@@ -181,26 +184,77 @@ func SubmitFrame2(vrApp *OVRMobile, frameDescription *OVRSubmitFrameDescription2
 	cFrameDesc := (*C.ovrSubmitFrameDescription2)(unsafe.Pointer(frameDescription))
 
 	// TODO REMOVE
-	cLayer := *(*C.ovrLayerProjection2)(unsafe.Pointer(&layer))
-	cHeader := *(*C.ovrLayerHeader2)(unsafe.Pointer(&header))
-	go C.addLayer(cApp, cFrameDesc, cHeader, cLayer)
-	time.Sleep(time.Millisecond * 10)
+	//cLayer := *(*C.ovrLayerProjection2)(unsafe.Pointer(&layer))
+	//cHeader := *(*C.ovrLayerHeader2)(unsafe.Pointer(&header))
+	//go C.addLayer(cApp, cFrameDesc, cHeader, cLayer)
+	//time.Sleep(time.Millisecond * 10)
 	// END
-
 	// TODO just MALLOC the pointer
 	// Since GC seems to free the c pointer when the program exits?
 	// https://stackoverflow.com/questions/35924545/golang-cgo-panic-runtime-error-cgo-argument-has-go-pointer-to-go-pointer
 
-	fmt.Printf("go header %+v\n", header)
-	fmt.Printf("C header %+v\n", cHeader)
-	fmt.Printf("frame desc header %+v\n", (cFrameDesc.Layers))
+	// Tried malloc
+	/*
+		size := 8
+		cPointer := (**C.ovrLayerHeader2)(C.malloc(C.size_t(size)))
+		*cPointer = &cHeader
+		cFrameDesc.Layers = cPointer
+		defer C.free(unsafe.Pointer(cPointer))
+	*/
+
+	/*
+		fmt.Printf("cPointer %+v\n", *cPointer)
+		fmt.Printf("go header %+v\n", header)
+		fmt.Printf("C header %+v\n", cHeader)
+		fmt.Printf("frame desc header %+v\n", *(cFrameDesc.Layers))
+	*/
 
 	// go header {Type:1 Flags:2 ColorScale:[1 1 1 1] SrcBlend:1 DstBlend:0 Reserved:<nil>
 	// C header {Type:1 Flags:2 ColorScale:{x:1 y:1 z:1 w:1} SrcBlend:1 DstBlend:0 Reserved:<nil>}
 	// 0x7ba39d2c28 =>
 
+	/*
+		Flags        uint32
+		SwapInterval uint32
+		FrameIndex   uint64
+		DisplayTime  float64
+		Pad          [8]byte // Unused
+		LayerCount   uint32
+		Layers       **C.ovrLayerHeader2
+	*/
+	/*
+		Type       OVRLayerType2
+		Flags      OVRFrameLayerFlags
+		ColorScale mgl.Vec4
+		SrcBlend   OVRFrameLayerBlend
+		DstBlend   OVRFrameLayerBlend
+		Reserved   unsafe.Pointer // VOID*?
+	*/
+
+	cPointerHeader := *(*C.ovrLayerHeader2)(unsafe.Pointer(&header))
+
+	cHeader := (*C.ovrLayerHeader2)(C.malloc(C.ulong(unsafe.Sizeof(cFrameDesc))))
+	cHeader.Flags = C.uint(cPointerHeader.Type)
+	cHeader.ColorScale = cPointerHeader.ColorScale
+	cHeader.SrcBlend = cPointerHeader.SrcBlend
+	cHeader.DstBlend = cPointerHeader.DstBlend
+	//cHeader.Reserved = cPointerHeader.Reserved
+
+	//cHeader := (*C.ovrLayerHeader2)(unsafe.Pointer(&header))
+	//cFrameDesc.Layers = &cHeader
+
+	cFrameDesc.Layers = (**C.ovrLayerHeader2)(C.malloc(C.ulong(unsafe.Sizeof(cHeader))))
+	*(cFrameDesc.Layers) = cHeader
+
+	cHeader.Type = 1
+	log.Printf("pointer header %+v\n", cPointerHeader)
+	log.Printf("frame layers %+v\n", *(cFrameDesc.Layers))
+	log.Printf("cHeader %+v\n", cHeader)
+	log.Println("BEFORE SUBMIT")
+
 	res := C.vrapi_SubmitFrame2(cApp, cFrameDesc)
 	if res != OVRSuccess {
+		log.Println(res)
 		return fmt.Errorf("get current input state expected sucess (%d) got %d",
 			OVRSuccess, res)
 	}
