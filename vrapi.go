@@ -25,6 +25,7 @@ import "C"
 
 import (
 	"fmt"
+	"log"
 	"unsafe"
 
 	mgl "github.com/go-gl/mathgl/mgl32"
@@ -164,13 +165,57 @@ type OVRSubmitFrameDescription2 struct {
 	DisplayTime  float64
 	Pad          [8]byte // Unused
 	LayerCount   uint32
-	Layers       []*OVRLayerHeader2 //**C.ovrLayerHeader2
+	Layers       []*OVRLayerHeader2 // Only supports single layers for now
 
 	//Layers       [1]*OVRLayerHeader2
 	//Layers       []OVRLayerHeader2 // TODO when calling stuff pass a pointer to first element
 }
 
-func SubmitFrame2(vrApp *OVRMobile, frameDesc *OVRSubmitFrameDescription2) error {
+type Context struct {
+	workAvailable chan<- struct{}
+	work          chan<- func()
+	// returnValue???
+}
+
+func NewContext() (Context, Worker) {
+	workAvailable := make(chan struct{}, 99999)
+	work := make(chan func(), 1)
+
+	c := Context{
+		workAvailable: workAvailable,
+		work:          work,
+	}
+	w := Worker{
+		workAvailable: workAvailable,
+		work:          work,
+	}
+
+	return c, w
+}
+
+type Worker struct {
+	workAvailable <-chan struct{}
+	work          <-chan func()
+}
+
+func (w *Worker) WorkAvailable() <-chan struct{} {
+	return w.workAvailable
+}
+
+func (w *Worker) DoWork() {
+	log.Println("Running fun")
+	fun := <-w.work
+	fun()
+}
+
+// glctx
+func (c *Context) SubmitFrame2(vrApp *OVRMobile, frameDesc *OVRSubmitFrameDescription2) error {
+	log.Println("Calling submit frame")
+	c.work <- func() {
+		log.Println("LOGGING")
+	}
+	c.workAvailable <- struct{}{}
+
 	// TODO fix this constaint (allow multiple layers possibly using "varadic" C functions)
 	if len(frameDesc.Layers) != 1 {
 		return fmt.Errorf("TODO not implmeneted layers must be size 1 for now passed in %+v",
