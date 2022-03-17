@@ -25,7 +25,6 @@ import "C"
 
 import (
 	"fmt"
-	"log"
 	"unsafe"
 
 	mgl "github.com/go-gl/mathgl/mgl32"
@@ -98,46 +97,6 @@ func DefaultModeParms(java *OVRJava) OVRModeParms {
 	return *(*OVRModeParms)(unsafe.Pointer(&cParms))
 }
 
-// glctx
-func EnterVrMode(modeParms *OVRModeParms) *OVRMobile {
-	cParms := (*C.ovrModeParms)(unsafe.Pointer(modeParms))
-	ovr := C.vrapi_EnterVrMode(cParms)
-	return (*OVRMobile)(ovr)
-}
-
-// glctx
-func Initialize(parms *OVRInitParms) error {
-	status := C.vrapi_Initialize((*C.ovrInitParms)(parms))
-	if status != INITIALIZE_SUCCESS {
-		return fmt.Errorf("vrapi_Initialize status %d not equal to sucess %d",
-			status, INITIALIZE_SUCCESS)
-	}
-	return nil
-}
-
-// glctx
-func CreateTextureSwapChain3(texType OVRTextureType, format int64,
-	width, height, levels, bufferCount int) *OVRTextureSwapChain {
-
-	cSwapChain := C.vrapi_CreateTextureSwapChain3(
-		C.ovrTextureType(texType), C.long(format),
-		C.int(width), C.int(height), C.int(levels), C.int(bufferCount))
-
-	return (*OVRTextureSwapChain)(unsafe.Pointer(cSwapChain))
-}
-
-// glctx?
-func GetTextureSwapChainLength(swapChain *OVRTextureSwapChain) int {
-	cSwapChain := (*C.ovrTextureSwapChain)(unsafe.Pointer(swapChain))
-	return int(C.vrapi_GetTextureSwapChainLength(cSwapChain))
-}
-
-// glctx
-func GetTextureSwapChainHandle(swapChain *OVRTextureSwapChain, i int) uint32 {
-	cSwapChain := (*C.ovrTextureSwapChain)(unsafe.Pointer(swapChain))
-	return uint32(C.vrapi_GetTextureSwapChainHandle(cSwapChain, C.int(i)))
-}
-
 type OVRLayerHeader2 struct {
 	Type       OVRLayerType2
 	Flags      OVRFrameLayerFlags
@@ -174,20 +133,23 @@ type OVRSubmitFrameDescription2 struct {
 type Context struct {
 	workAvailable chan<- struct{}
 	work          chan<- func()
-	// returnValue???
+	workDone      <-chan struct{}
 }
 
 func NewContext() (Context, Worker) {
-	workAvailable := make(chan struct{}, 99999)
+	workAvailable := make(chan struct{}, 1)
 	work := make(chan func(), 1)
+	workDone := make(chan struct{})
 
 	c := Context{
 		workAvailable: workAvailable,
 		work:          work,
+		workDone:      workDone,
 	}
 	w := Worker{
 		workAvailable: workAvailable,
 		work:          work,
+		workDone:      workDone,
 	}
 
 	return c, w
@@ -196,6 +158,7 @@ func NewContext() (Context, Worker) {
 type Worker struct {
 	workAvailable <-chan struct{}
 	work          <-chan func()
+	workDone      chan<- struct{}
 }
 
 func (w *Worker) WorkAvailable() <-chan struct{} {
@@ -203,45 +166,104 @@ func (w *Worker) WorkAvailable() <-chan struct{} {
 }
 
 func (w *Worker) DoWork() {
-	log.Println("Running fun")
+	// (<-w.work)() would be so much more confusing...
 	fun := <-w.work
 	fun()
+	w.workDone <- struct{}{}
 }
 
-// glctx
-func (c *Context) SubmitFrame2(vrApp *OVRMobile, frameDesc *OVRSubmitFrameDescription2) error {
-	log.Println("Calling submit frame")
-	c.work <- func() {
-		log.Println("LOGGING")
-	}
-	c.workAvailable <- struct{}{}
+// TODO glctx
+func EnterVrMode(modeParms *OVRModeParms) *OVRMobile {
+	cParms := (*C.ovrModeParms)(unsafe.Pointer(modeParms))
+	ovr := C.vrapi_EnterVrMode(cParms)
+	return (*OVRMobile)(ovr)
+}
 
-	// TODO fix this constaint (allow multiple layers possibly using "varadic" C functions)
-	if len(frameDesc.Layers) != 1 {
-		return fmt.Errorf("TODO not implmeneted layers must be size 1 for now passed in %+v",
-			frameDesc.Layers)
-	}
-
-	// Save layers and clear out layer field of frame description
-	layers := frameDesc.Layers
-	frameDesc.Layers = nil
-
-	// Think we should be good with casting this memory? Even though Layers is
-	// a slice in Go? We can just overwrite the memory with the Go pointer, and
-	// the slice will always be larger than the pointer?
-	cFrameDesc := (*C.ovrSubmitFrameDescription2)(unsafe.Pointer(frameDesc))
-
-	cApp := (*C.ovrMobile)(unsafe.Pointer(vrApp))
-	cLayer := *(*C.ovrLayerProjection2)(unsafe.Pointer(layers[0]))
-
-	res := C.submit(cApp, cFrameDesc, cLayer)
-	frameDesc.Layers = layers
-
-	if res != OVRSuccess {
-		return fmt.Errorf("get current input state expected sucess (%d) got %d",
-			OVRSuccess, res)
+// TODO glctx
+func Initialize(parms *OVRInitParms) error {
+	status := C.vrapi_Initialize((*C.ovrInitParms)(parms))
+	if status != INITIALIZE_SUCCESS {
+		return fmt.Errorf("vrapi_Initialize status %d not equal to sucess %d",
+			status, INITIALIZE_SUCCESS)
 	}
 	return nil
+}
+
+func (c *Context) CreateTextureSwapChain3(texType OVRTextureType, format int64,
+	width, height, levels, bufferCount int) *OVRTextureSwapChain {
+
+	var swapChain *OVRTextureSwapChain
+	c.work <- func() {
+		cSwapChain := C.vrapi_CreateTextureSwapChain3(
+			C.ovrTextureType(texType), C.long(format),
+			C.int(width), C.int(height), C.int(levels), C.int(bufferCount))
+		swapChain = (*OVRTextureSwapChain)(unsafe.Pointer(cSwapChain))
+	}
+	c.workAvailable <- struct{}{}
+	<-c.workDone
+
+	return swapChain
+}
+
+func (c *Context) GetTextureSwapChainLength(swapChain *OVRTextureSwapChain) int {
+	var length int
+	c.work <- func() {
+		cSwapChain := (*C.ovrTextureSwapChain)(unsafe.Pointer(swapChain))
+		length = int(C.vrapi_GetTextureSwapChainLength(cSwapChain))
+	}
+	c.workAvailable <- struct{}{}
+	<-c.workDone
+
+	return length
+}
+
+func (c *Context) GetTextureSwapChainHandle(swapChain *OVRTextureSwapChain, i int) uint32 {
+	var handle uint32
+	c.work <- func() {
+		cSwapChain := (*C.ovrTextureSwapChain)(unsafe.Pointer(swapChain))
+		handle = uint32(C.vrapi_GetTextureSwapChainHandle(cSwapChain, C.int(i)))
+	}
+	c.workAvailable <- struct{}{}
+	<-c.workDone
+
+	return handle
+}
+
+func (c *Context) SubmitFrame2(vrApp *OVRMobile, frameDesc *OVRSubmitFrameDescription2) error {
+	var err error
+	c.work <- func() {
+		// TODO fix this constaint (allow multiple layers possibly using "varadic" C functions)
+		if len(frameDesc.Layers) != 1 {
+			err = fmt.Errorf("TODO not implmeneted layers must be size 1 for now passed in %+v",
+				frameDesc.Layers)
+			return
+		}
+
+		// Save layers and clear out layer field of frame description
+		layers := frameDesc.Layers
+		frameDesc.Layers = nil
+
+		// Think we should be good with casting this memory? Even though Layers is
+		// a slice in Go? We can just overwrite the memory with the Go pointer, and
+		// the slice will always be larger than the pointer?
+		cFrameDesc := (*C.ovrSubmitFrameDescription2)(unsafe.Pointer(frameDesc))
+
+		cApp := (*C.ovrMobile)(unsafe.Pointer(vrApp))
+		cLayer := *(*C.ovrLayerProjection2)(unsafe.Pointer(layers[0]))
+
+		res := C.submit(cApp, cFrameDesc, cLayer)
+		frameDesc.Layers = layers
+
+		if res != OVRSuccess {
+			err = fmt.Errorf("get current input state expected sucess (%d) got %d",
+				OVRSuccess, res)
+			return
+		}
+	}
+	c.workAvailable <- struct{}{}
+	<-c.workDone
+
+	return err
 }
 
 type OVRTextureSwapChain C.ovrTextureSwapChain // TODO what is this type???
