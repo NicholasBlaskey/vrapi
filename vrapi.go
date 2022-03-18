@@ -172,21 +172,32 @@ func (w *Worker) DoWork() {
 	w.workDone <- struct{}{}
 }
 
-// TODO glctx
-func EnterVrMode(modeParms *OVRModeParms) *OVRMobile {
-	cParms := (*C.ovrModeParms)(unsafe.Pointer(modeParms))
-	ovr := C.vrapi_EnterVrMode(cParms)
-	return (*OVRMobile)(ovr)
+func (c *Context) EnterVrMode(modeParms *OVRModeParms) *OVRMobile {
+	var ovr *OVRMobile
+	c.work <- func() {
+		cParms := (*C.ovrModeParms)(unsafe.Pointer(modeParms))
+		cOVR := C.vrapi_EnterVrMode(cParms)
+		ovr = (*OVRMobile)(cOVR)
+	}
+	c.workAvailable <- struct{}{}
+	<-c.workDone
+
+	return ovr
 }
 
-// TODO glctx
-func Initialize(parms *OVRInitParms) error {
-	status := C.vrapi_Initialize((*C.ovrInitParms)(parms))
-	if status != INITIALIZE_SUCCESS {
-		return fmt.Errorf("vrapi_Initialize status %d not equal to sucess %d",
-			status, INITIALIZE_SUCCESS)
+func (c *Context) Initialize(parms *OVRInitParms) error {
+	var err error
+	c.work <- func() {
+		status := C.vrapi_Initialize((*C.ovrInitParms)(parms))
+		if status != INITIALIZE_SUCCESS {
+			err = fmt.Errorf("vrapi_Initialize status %d not equal to sucess %d",
+				status, INITIALIZE_SUCCESS)
+		}
 	}
-	return nil
+	c.workAvailable <- struct{}{}
+	<-c.workDone
+
+	return err
 }
 
 func (c *Context) CreateTextureSwapChain3(texType OVRTextureType, format int64,
